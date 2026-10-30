@@ -83,7 +83,7 @@ canvas { width: 100%; max-width: 100%; image-rendering: pixelated; image-renderi
 (function () {
   const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
   ctx.imageSmoothingEnabled = false;
-  let claude = null, agents = [], quest = null, prog = {}, NEXT = "";
+  let claude = null, agents = [], quest = null, prog = {}, NEXT = "", LATEST = "";
   const W = 240;
   // ---------------------------------------------------------------- palette + sprites
   const SHIRTS = ['#ffb23c', '#4fc3f7', '#b388ff', '#5ee06b', '#ff7aa8', '#ffd54f', '#80deea', '#ff8a65'];
@@ -204,7 +204,29 @@ canvas { width: 100%; max-width: 100%; image-rendering: pixelated; image-renderi
     txt(msg, bx + 3, by + 2, edge);
   }
   // ---------------------------------------------------------------- cafe (agents who finished take a coffee break here)
-  const CAFE_H = 58;
+  const CAFE_H = 58, LOUNGE_H = 44;
+  // ---------------------------------------------------------------- lounge: sofa, arcade machine and a TV showing the latest video
+  function lounge(y0, t) {
+    rect(0, y0, W, LOUNGE_H, '#2a2440'); for (let x = 0; x < W; x += 8) for (let yy = y0; yy < y0 + LOUNGE_H; yy += 8) if (((x + yy) / 8) % 2) rect(x, yy, 8, 8, '#2f2848');
+    rect(0, y0, W, 2, '#1c1830');
+    // rug + sofa
+    rect(10, y0 + 30, 70, 10, '#5a2d82'); rect(12, y0 + 32, 66, 6, '#6d3a9c');
+    rect(14, y0 + 14, 62, 8, '#3d6fb0'); rect(14, y0 + 22, 62, 9, '#4f86cc'); rect(10, y0 + 16, 6, 16, '#3d6fb0'); rect(74, y0 + 16, 6, 16, '#3d6fb0');
+    rect(22, y0 + 23, 18, 2, '#6aa0e0'); rect(48, y0 + 23, 18, 2, '#6aa0e0');
+    // arcade machine with blinking screen
+    rect(98, y0 + 6, 20, 34, '#b388ff'); rect(100, y0 + 8, 16, 12, '#12101c');
+    const fl = ((t * 4) | 0) % 4; rect(102 + fl * 3, y0 + 12, 2, 2, '#ffd54f'); rect(110 - fl, y0 + 16, 2, 2, '#5ee06b'); rect(104, y0 + 10, 8, 1, '#ff7aa8');
+    rect(100, y0 + 22, 16, 4, '#7c4dcc'); rect(103, y0 + 23, 2, 2, '#ff5468'); rect(110, y0 + 23, 2, 2, '#4fc3f7'); rect(99, y0 + 6, 18, 2, '#ffb23c');
+    // TV on a stand: the latest video
+    rect(138, y0 + 4, 92, 28, '#0c0a16'); rect(140, y0 + 6, 88, 24, '#1b2a4a');
+    rect(140, y0 + 6, 88, 7, '#12101c'); txt('LATEST', 184, y0 + 7, '#ffb23c', true);
+    const title = String(LATEST || 'NEW VIDEO SOON').toUpperCase(), wpx = title.length * 4;
+    const off = wpx > 82 ? ((t * 14) % (wpx + 40)) - 20 : 0;
+    ctx.save(); ctx.beginPath(); ctx.rect(142, y0 + 15, 84, 8); ctx.clip();
+    txt(title, wpx > 82 ? 144 - off : 184 - wpx / 2 + 1, y0 + 17, '#e9e4ff'); ctx.restore();
+    rect(180, y0 + 24, 6, 4, '#4fc3f7'); rect(178, y0 + 25, 2, 2, '#4fc3f7');
+    rect(180, y0 + 32, 8, 6, '#3a3358'); rect(166, y0 + 38, 36, 3, '#3a3358');
+  }
   function cafe(y0, S, t) {
     // floor + back wall
     rect(0, y0, W, CAFE_H, '#2e2236'); for (let x = 0; x < W; x += 8) for (let yy = y0; yy < y0 + CAFE_H; yy += 8) if (((x + yy) / 8) % 2) rect(x, yy, 8, 8, '#33263d');
@@ -248,12 +270,15 @@ canvas { width: 100%; max-width: 100%; image-rendering: pixelated; image-renderi
   // ---------------------------------------------------------------- office cat: walks between the desks and naps in the cafe
   const CAT = ['.k...k.', '.kkkkk.', 'kekkekk', 'kkkpkkk', '.kkkkk.'];
   function cat(H, t) {
-    const cycle = 40, u = (t % cycle) / cycle, y0 = H - CAFE_H + 40;
+    const cycle = 56, u = (t % cycle) / cycle, y0 = H - CAFE_H + 40;
     let x, y = y0, walking = true;
-    if (u < 0.35) x = 12 + (W - 40) * (u / 0.35);
-    else if (u < 0.55) { x = W - 28; walking = false; }
-    else if (u < 0.9) x = W - 28 - (W - 140) * ((u - 0.55) / 0.35);
+    if (u < 0.25) x = 12 + (W - 40) * (u / 0.25);
+    else if (u < 0.38) { x = W - 28; walking = false; }
+    else if (u < 0.6) x = W - 28 - (W - 140) * ((u - 0.38) / 0.22);
+    else if (u < 0.68) { x = 112; walking = false; }
+    else if (u < 0.88) { x = 46; y = 66 + 6; walking = (u < 0.7); }   // naps on Claude's desk
     else { x = 112; walking = false; }
+    if (u >= 0.68 && u < 0.88) { const z = (t * 1.2) % 1; txt('Z', 56, 66 - (z * 6) | 0, '#9a90bd'); }
     const leg = walking && ((t * 6) | 0) % 2;
     const col = { k: '#3a3048', e: '#ffd54f', p: '#ff7aa8' };
     for (let j = 0; j < CAT.length; j++) for (let i = 0; i < 7; i++) { const c = col[CAT[j][i]]; if (c) rect(Math.round(x) + i, y + j, 1, 1, c); }
@@ -264,11 +289,12 @@ canvas { width: 100%; max-width: 100%; image-rendering: pixelated; image-renderi
   function frame(now) {
     const t = now / 1000, S = seats();
     const rows = Math.ceil(S.length / 2);
-    const H = 56 + rows * 66 + CAFE_H;
+    const H = 56 + rows * 66 + LOUNGE_H + CAFE_H;
     if (cv.height !== H) { cv.height = H; ctx.imageSmoothingEnabled = false; }
     room(H, t);
     const spots = S.map((s, i) => [i % 2 ? 136 : 40, 66 + Math.floor(i / 2) * 66]);
     const tops = S.map((s, i) => desk(spots[i][0], spots[i][1], s, i, t));
+    lounge(H - CAFE_H - LOUNGE_H, t);
     cafe(H - CAFE_H, S, t);
     S.forEach((s, i) => { if (s.state !== 'done') bubble(tops[i].x, tops[i].y, s, t); });
     cat(H, t);
@@ -354,7 +380,7 @@ canvas { width: 100%; max-width: 100%; image-rendering: pixelated; image-renderi
           if (lastPct === null && pct >= 100 && quest.doneAt && Date.now() - quest.doneAt < 10 * 60 * 1000) celebrateUntil = quest.doneAt + 10 * 60 * 1000;
           lastPct = pct;
         }
-        renderVote(st.vote); NEXT = st.next || '';
+        renderVote(st.vote); NEXT = st.next || ''; LATEST = st.latest || '';
         const fresh = st.updated && (Date.now() - st.updated < 15 * 60 * 1000);
         live.classList.toggle('on', !!fresh); liveTxt.textContent = fresh ? 'LIVE' : 'ON BREAK';
         list();
