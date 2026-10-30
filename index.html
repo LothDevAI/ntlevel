@@ -42,6 +42,14 @@ canvas { width: 100%; max-width: 100%; image-rendering: pixelated; image-renderi
 .pct { font-size: 8px; color: var(--ink); margin-top: 4px; display: flex; justify-content: space-between; gap: 8px; }
 .card.done .bar i { background: var(--ok); }
 .intro { font-size: 9px; line-height: 2; color: var(--mute); margin: 0; } .intro a { color: var(--amber); }
+.vote { background: var(--panel); border: 3px solid var(--edge); box-shadow: 3px 3px 0 #000; padding: 10px; display: none; }
+.vote.on { display: block; }
+.vote h2 { font-size: 10px; color: var(--amber); margin: 0 0 8px; font-weight: 400; line-height: 1.6; }
+.vote .opt { font-size: 8px; line-height: 1.8; margin-top: 8px; color: var(--ink); }
+.vote .bar { margin-top: 4px; }
+.vote .bar i { background: var(--ok); }
+.vote a.btn { display: inline-block; margin-top: 12px; font-size: 8px; color: #12101c; background: var(--amber); padding: 8px 10px; text-decoration: none; box-shadow: 3px 3px 0 #000; }
+.vote .note { font-size: 7px; color: var(--mute); margin-top: 8px; line-height: 1.8; }
 .hint { font-size: 8px; line-height: 2; color: var(--mute); border: 3px dashed var(--edge); padding: 10px; }
 @media (prefers-reduced-motion: reduce) { .live.on i { animation: none; } }
 </style>
@@ -65,6 +73,7 @@ canvas { width: 100%; max-width: 100%; image-rendering: pixelated; image-renderi
     <div class="pct"><span id="qp">0%</span><span id="qe"></span></div>
   </div>
   <canvas id="cv" width="240" height="200" aria-label="Pixel-art office where Claude and its helper agents work at their desks"></canvas>
+  <div class="vote" id="vote"></div>
   <div class="party" id="party">
     <div class="hint">NO ONE IS ON SHIFT YET. WHEN CLAUDE STARTS A QUEST (A VIDEO, A RENDER, RESEARCH), CLAUDE AND EACH HELPER IT HIRES APPEAR AT A DESK HERE, LIVE.</div>
   </div>
@@ -212,6 +221,18 @@ canvas { width: 100%; max-width: 100%; image-rendering: pixelated; image-renderi
     if (!brk.length) txt('OPEN FOR BREAKS', 76, y0 + 49, '#6d6290', true);
   }
   function shade(hex) { const n = parseInt(hex.slice(1), 16); const r = (n >> 16) * .7 | 0, g = ((n >> 8) & 255) * .7 | 0, b = (n & 255) * .7 | 0; return `rgb(${r},${g},${b})`; }
+  // ---------------------------------------------------------------- celebration (a new video is done)
+  let celebrateUntil = 0, lastPct = null;
+  const CONF = ['#ffb23c', '#4fc3f7', '#5ee06b', '#ff7aa8', '#ffd54f', '#b388ff'];
+  function party(H, t) {
+    for (let i = 0; i < 70; i++) {
+      const sp = 18 + (i * 37) % 23, x = (i * 53 + Math.sin(t * 1.3 + i) * 10) % W, y = ((t * sp + i * 29) % (H + 10)) - 5;
+      rect(Math.round((x + W) % W), Math.round(y), (i % 3) ? 2 : 1, (i % 2) ? 2 : 3, CONF[i % CONF.length]);
+    }
+    const bw = 88, bx = (W - bw) / 2, by = 40, blink = ((t * 3) | 0) % 2;
+    rect(bx - 2, by - 2, bw + 4, 15, '#12101c'); rect(bx - 1, by - 1, bw + 2, 13, blink ? '#ffb23c' : '#5ee06b'); rect(bx, by, bw, 11, '#12101c');
+    txt('NEW VIDEO!', W / 2, by + 3, blink ? '#ffb23c' : '#5ee06b', true);
+  }
   function frame(now) {
     const t = now / 1000, S = seats();
     const rows = Math.ceil(S.length / 2);
@@ -222,6 +243,7 @@ canvas { width: 100%; max-width: 100%; image-rendering: pixelated; image-renderi
     const tops = S.map((s, i) => desk(spots[i][0], spots[i][1], s, i, t));
     cafe(H - CAFE_H, S, t);
     S.forEach((s, i) => { if (s.state !== 'done') bubble(tops[i].x, tops[i].y, s, t); });
+    if (Date.now() < celebrateUntil) party(H, t);
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
@@ -269,6 +291,23 @@ canvas { width: 100%; max-width: 100%; image-rendering: pixelated; image-renderi
     }));
   }
   list();
+  function renderVote(v) {
+    const el = document.getElementById('vote');
+    if (!v || !v.options || !v.options.length) { el.classList.remove('on'); return; }
+    el.classList.add('on');
+    const total = v.options.reduce((a, o) => a + (o.votes || 0), 0);
+    const h = document.createElement('h2'); h.textContent = v.title || 'WHAT SHOULD THE AGENTS MAKE NEXT?';
+    const items = v.options.map(o => {
+      const d = document.createElement('div'); d.className = 'opt';
+      const pc = total ? Math.round(100 * (o.votes || 0) / total) : 0;
+      d.textContent = String(o.name).toUpperCase() + (total ? '  ' + pc + '%' : '');
+      const b = document.createElement('div'); b.className = 'bar'; const bi = document.createElement('i'); bi.style.width = pc + '%'; b.append(bi); d.append(b);
+      return d;
+    });
+    const a = document.createElement('a'); a.className = 'btn'; a.href = v.link || 'https://instagram.com/ntlevel'; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'VOTE IN OUR INSTAGRAM STORY';
+    const n = document.createElement('div'); n.className = 'note'; n.textContent = v.note || 'RESULTS ARE UPDATED HERE BY THE AGENTS.';
+    el.replaceChildren(h, ...items, a, n);
+  }
   (async () => {
     // public version: reads status.json from this same site every 20 s (updated by the agents while they work)
     const live = document.getElementById('live'), liveTxt = document.getElementById('liveTxt');
@@ -279,6 +318,13 @@ canvas { width: 100%; max-width: 100%; image-rendering: pixelated; image-renderi
         claude = st.claude || null; agents = st.agents || [];
         prog = {}; quest = null;
         (st.progress || []).forEach(v => { if (v.id === 'quest') quest = v; else if (v.who) prog[String(v.who).toLowerCase()] = v; });
+        if (quest) {
+          const pct = quest.pct || 0;
+          if (lastPct !== null && lastPct < 100 && pct >= 100) celebrateUntil = Date.now() + 15000;
+          if (lastPct === null && pct >= 100 && quest.doneAt && Date.now() - quest.doneAt < 10 * 60 * 1000) celebrateUntil = quest.doneAt + 10 * 60 * 1000;
+          lastPct = pct;
+        }
+        renderVote(st.vote);
         const fresh = st.updated && (Date.now() - st.updated < 15 * 60 * 1000);
         live.classList.toggle('on', !!fresh); liveTxt.textContent = fresh ? 'LIVE' : 'ON BREAK';
         list();
