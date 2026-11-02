@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NTL Agent Office</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
+<style>
+/* Layout: a pixel-art office (canvas, 240px wide, scaled up crisp) above a game-style party list. Single dark look. */
+:root {
+  --bg: #12101c; --panel: #1c1930; --edge: #3a3358; --ink: #f2ecff; --mute: #9a90bd;
+  --amber: #ffb23c; --ok: #5ee06b; --bad: #ff5468;
+  --pix: "Press Start 2P", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme: dark;
+}
+html, body { background: var(--bg); color: var(--ink); }
+body { font-family: var(--pix); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 16px 28px; }
+.wrap { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+header { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+h1 { font-size: 13px; margin: 0; letter-spacing: .05em; color: var(--amber); text-shadow: 2px 2px 0 #5a3410; }
+.live { font-size: 8px; color: var(--mute); display: flex; gap: 6px; align-items: center; }
+.live i { width: 8px; height: 8px; background: var(--mute); display: inline-block; }
+.live.on i { background: var(--ok); animation: blink 1s steps(2) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.stats { display: flex; gap: 8px; flex-wrap: wrap; }
+.stat { background: var(--panel); border: 3px solid var(--edge); padding: 8px 10px; font-size: 8px; color: var(--mute); display: flex; gap: 8px; align-items: center; box-shadow: 3px 3px 0 #000; }
+.stat b { color: var(--ink); font-size: 12px; font-weight: 400; font-variant-numeric: tabular-nums; }
+.stat.a b { color: var(--amber); }
+canvas { width: 100%; max-width: 100%; image-rendering: pixelated; image-rendering: crisp-edges; border: 4px solid var(--edge); box-shadow: 4px 4px 0 #000; display: block; background: #000; }
+.party { display: flex; flex-direction: column; gap: 8px; }
+.card { background: var(--panel); border: 3px solid var(--edge); box-shadow: 3px 3px 0 #000; padding: 10px; display: grid; grid-template-columns: 22px 1fr; gap: 10px; align-items: center; }
+.card .ic { width: 22px; height: 22px; image-rendering: pixelated; }
+.card .who { font-size: 9px; line-height: 1.6; min-width: 0; overflow-wrap: anywhere; }
+.card .what { font-size: 8px; color: var(--mute); line-height: 1.8; margin-top: 4px; overflow-wrap: anywhere; }
+.card.work .what { color: var(--amber); } .card.done .what { color: var(--ok); } .card.fail .what { color: var(--bad); }
+.quest { background: var(--panel); border: 3px solid var(--amber); box-shadow: 3px 3px 0 #000; padding: 10px; display: none; }
+.quest.on { display: block; }
+.quest .qt { font-size: 8px; color: var(--mute); }
+.quest .qv { font-size: 11px; color: var(--ink); line-height: 1.6; margin: 6px 0; overflow-wrap: anywhere; }
+.quest .qs { font-size: 8px; color: var(--amber); line-height: 1.8; overflow-wrap: anywhere; }
+.bar { height: 14px; border: 3px solid var(--edge); background: #0c0a16; margin-top: 6px; position: relative; }
+.bar i { position: absolute; left: 0; top: 0; bottom: 0; background: repeating-linear-gradient(90deg, var(--amber) 0 6px, #ffcf7a 6px 8px); transition: width .6s steps(12); }
+.pct { font-size: 8px; color: var(--ink); margin-top: 4px; display: flex; justify-content: space-between; gap: 8px; }
+.card.done .bar i { background: var(--ok); }
+.intro { font-size: 9px; line-height: 2; color: var(--mute); margin: 0; } .intro a { color: var(--amber); }
+.vote { background: var(--panel); border: 3px solid var(--edge); box-shadow: 3px 3px 0 #000; padding: 10px; display: none; }
+.vote.on { display: block; }
+.vote h2 { font-size: 10px; color: var(--amber); margin: 0 0 8px; font-weight: 400; line-height: 1.6; }
+.vote .opt { font-size: 8px; line-height: 1.8; margin-top: 8px; color: var(--ink); }
+.vote .bar { margin-top: 4px; }
+.vote .bar i { background: var(--ok); }
+.vote a.btn { display: inline-block; margin-top: 12px; font-size: 8px; color: #12101c; background: var(--amber); padding: 8px 10px; text-decoration: none; box-shadow: 3px 3px 0 #000; }
+.vote .note { font-size: 7px; color: var(--mute); margin-top: 8px; line-height: 1.8; }
+.hint { font-size: 8px; line-height: 2; color: var(--mute); border: 3px dashed var(--edge); padding: 10px; }
+@media (prefers-reduced-motion: reduce) { .live.on i { animation: none; } }
+</style>
+
+<div class="wrap">
+  <p class="intro">WATCH THE AI AGENTS BEHIND <a href="https://instagram.com/ntlevel">@NTLEVEL</a> MAKE SCIENCE VIDEOS, LIVE.</p>
+  <header>
+    <h1>AGENT OFFICE</h1>
+    <span class="live" id="live"><i></i><span id="liveTxt">CONNECTING…</span></span>
+  </header>
+  <div class="stats">
+    <div class="stat a">WORKING <b id="nWork">0</b></div>
+    <div class="stat">DONE <b id="nDone">0</b></div>
+    <div class="stat">QUEST <b id="proj" style="font-size:8px">—</b></div>
+  </div>
+  <div class="quest" id="quest">
+    <div class="qt">NOW MAKING</div>
+    <div class="qv" id="qv">—</div>
+    <div class="qs" id="qs"></div>
+    <div class="bar"><i id="qb" style="width:0%"></i></div>
+    <div class="pct"><span id="qp">0%</span><span id="qe"></span></div>
+  </div>
+  <canvas id="cv" width="240" height="200" aria-label="Pixel-art office where Claude and its helper agents work at their desks"></canvas>
+  <div class="vote" id="vote"></div>
+  <div class="party" id="party">
+    <div class="hint">NO ONE IS ON SHIFT YET. WHEN CLAUDE STARTS A QUEST (A VIDEO, A RENDER, RESEARCH), CLAUDE AND EACH HELPER IT HIRES APPEAR AT A DESK HERE, LIVE.</div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  let claude = null, agents = [], quest = null, prog = {}, NEXT = "", LATEST = "";
+  const W = 240;
+  // ---------------------------------------------------------------- palette + sprites
+  const SHIRTS = ['#ffb23c', '#4fc3f7', '#b388ff', '#5ee06b', '#ff7aa8', '#ffd54f', '#80deea', '#ff8a65'];
+  const HAIRS = ['#3b2414', '#1a1a1a', '#7a4a1e', '#d9a55a', '#5a2d82', '#222b48', '#9b2c2c', '#e5e5e5'];
+  // person seen from the front, behind a desk: 12 x 14. Keys: H hair, S skin, E eye, C shirt, D shirt dark, h hand
+  const PERSON = [
+    '...HHHHHH...',
+    '..HHHHHHHH..',
+    '..HSSSSSSH..',
+    '..SSESSESS..',
+    '..SSSSSSSS..',
+    '...SSmmSS...',
+    '....SSSS....',
+    '..CCCCCCCC..',
+    '.CCCCCCCCCC.',
+    'CCCDCCCCDCCC',
+    'CCCDCCCCDCCC',
+    'CCCDCCCCDCCC',
+  ];
+  const HANDS_A = ['..h......h..'], HANDS_B = ['...h....h...'];
+  function sprite(rows, x, y, map) {
+    for (let j = 0; j < rows.length; j++) for (let i = 0; i < rows[j].length; i++) {
+      const c = map[rows[j][i]]; if (!c) continue;
+      ctx.fillStyle = c; ctx.fillRect(x + i, y + j, 1, 1);
+    }
+  }
+  function rect(x, y, w, h, c) { ctx.fillStyle = c; ctx.fillRect(x, y, w, h); }
+  // tiny 3x5 pixel font for labels drawn into the canvas (crisp at any scale)
+  const F = {
+    A:'010101111101101',B:'110101110101110',C:'011100100100011',D:'110101101101110',E:'111100110100111',F:'111100110100100',G:'011100101101011',H:'101101111101101',I:'111010010010111',J:'001001001101010',K:'101101110101101',L:'100100100100111',M:'101111111101101',N:'110101101101101',O:'010101101101010',P:'110101110100100',Q:'010101101110011',R:'110101110101101',S:'011100010001110',T:'111010010010010',U:'101101101101111',V:'101101101101010',W:'101101111111101',X:'101101010101101',Y:'101101010010010',Z:'111001010100111',
+    '0':'111101101101111','1':'010110010010111','2':'110001010100111','3':'110001010001110','4':'101101111001001','5':'111100110001110','6':'011100111101111','7':'111001010010010','8':'111101111101111','9':'111101111001110',
+    ' ':'000000000000000','.':'000000000000010','!':'010010010000010','?':'110001010000010','-':'000000111000000',':':'000010000010000','+':'000010111010000','/':'001001010100100',"'":'010010000000000',',':'000000000010100'
+  };
+  function txt(s, x, y, c, center) {
+    s = String(s).toUpperCase(); const w = s.length * 4 - 1; if (center) x = Math.round(x - w / 2);
+    for (let k = 0; k < s.length; k++) { const g = F[s[k]] || F['?']; for (let j = 0; j < 5; j++) for (let i = 0; i < 3; i++) if (g[j * 3 + i] === '1') rect(x + k * 4 + i, y + j, 1, 1, c); }
+    return w;
+  }
+  const short = (s, n) => { s = String(s || '').toUpperCase().replace(/[^A-Z0-9 .!?\-:+\/',]/g, ''); return s.length > n ? s.slice(0, n - 1) + '.' : s; };
+  // ---------------------------------------------------------------- scene
+  function seats() {
+    const list = [{ name: 'CLAUDE', state: claude ? claude.state : 'idle', bubble: claude ? (claude.task || (claude.state === 'work' ? 'working' : 'waiting for you')) : 'waiting for you', main: true }];
+    agents.forEach(a => list.push({ name: a.name || 'helper', state: a.state || 'work', bubble: a.task || (a.state === 'done' ? 'done!' : a.state === 'fail' ? 'stopped' : 'working') }));
+    list.forEach(s => {
+      const p = prog[String(s.name).toLowerCase()];
+      s.video = (p && p.video) || (quest && quest.video) || '';
+      s.pct = p && p.pct != null ? p.pct : (s.main && quest ? quest.pct : (s.state === 'done' ? 100 : null));
+    });
+    return list;
+  }
+  function room(H, t) {
+    // wall
+    rect(0, 0, W, 40, '#2b2546'); rect(0, 36, W, 4, '#1c1830');
+    for (let x = 0; x < W; x += 16) rect(x, 0, 1, 36, '#262040');
+    // windows follow the viewer's real time of day: sunrise, day, sunset, night
+    const d = new Date(), hr = d.getHours() + d.getMinutes() / 60;
+    const day = hr >= 7 && hr < 18, dusk = (hr >= 18 && hr < 19.5) || (hr >= 5.5 && hr < 7);
+    const sky = day ? ['#5aa9e6', '#8fcbf2'] : dusk ? ['#e0794f', '#f2b36b'] : ['#1b2a5a', '#1b2a5a'];
+    for (const wx of [24, 168]) {
+      rect(wx - 2, 6, 52, 24, '#120e22'); rect(wx, 8, 48, 10, sky[0]); rect(wx, 18, 48, 10, sky[1]);
+      if (day || dusk) { const sx = wx + 8 + ((hr * 3) % 30) | 0; rect(sx, day ? 10 : 20, 4, 4, '#fff1a8'); rect(wx + 30, 12, 9, 2, '#eef6ff'); rect(wx + 28, 13, 13, 2, '#eef6ff'); }
+      else { for (let k = 0; k < 5; k++) { const sx = wx + ((k * 13 + wx) % 46), sy = 9 + ((k * 7) % 17); if (((t * 2 + k) | 0) % 3) rect(sx, sy, 1, 1, '#fff7c2'); } rect(wx + 36, 10, 4, 4, '#e9e4ff'); rect(wx + 38, 10, 2, 2, '#1b2a5a'); }
+      rect(wx + 23, 8, 2, 20, '#120e22'); rect(wx, 17, 48, 2, '#120e22');
+    }
+    // neon sign + clock
+    rect(96, 8, 48, 14, '#0c0a16'); txt('NTLEVEL', 120, 13, ((t * 2) | 0) % 2 ? '#ffb23c' : '#ffcf7a', true);
+    rect(150, 10, 10, 10, '#e9e4ff');
+    { const a = ((hr % 12) / 12) * 6.283, m = (d.getMinutes() / 60) * 6.283;
+      for (let k = 1; k <= 3; k++) rect(155 + Math.round(Math.sin(m) * k), 15 - Math.round(Math.cos(m) * k), 1, 1, '#12101c');
+      for (let k = 1; k <= 2; k++) rect(155 + Math.round(Math.sin(a) * k), 15 - Math.round(Math.cos(a) * k), 1, 1, '#ff5468'); }
+    // whiteboard with the next idea
+    rect(74, 6, 21, 26, '#c9c4d8'); rect(75, 7, 19, 24, '#f2ecff');
+    txt('NEXT', 85, 9, '#ff5468', true);
+    const nx = String(NEXT || '???').toUpperCase().split(' ');
+    nx.slice(0, 3).forEach((w, k) => txt(w.slice(0, 4), 85, 16 + k * 6, '#3a3358', true));
+    // floor checker
+    for (let y = 40; y < H; y += 8) for (let x = 0; x < W; x += 8) rect(x, y, 8, 8, ((x + y) / 8) % 2 ? '#3a3150' : '#342c4a');
+    // plant + coffee machine
+    rect(6, 44, 10, 14, '#6b3f22'); rect(4, 34, 14, 12, '#2f8f4e'); rect(7, 30, 8, 6, '#3fb062');
+    rect(222, 42, 12, 18, '#5a5f73'); rect(224, 46, 8, 5, '#1b1f2a'); rect(226, 54, 4, 4, '#e7e2d8');
+    if (((t * 1.5) | 0) % 2) rect(227, 51, 1, 2, '#c8c8c8');
+  }
+  function desk(x, y, s, i, t) {
+    const shirt = s.main ? '#ffb23c' : SHIRTS[(i % (SHIRTS.length - 1)) + 1], hair = HAIRS[i % HAIRS.length];
+    const work = s.state === 'work';
+    const bob = work && ((t * 6 + i) | 0) % 2 ? 1 : 0;
+    // chair back
+    rect(x + 14, y + 1, 20, 14, '#2a2340'); rect(x + 16, y + 3, 16, 10, '#3d3360');
+    // person (agents who finished are on a coffee break in the cafe)
+    if (s.state !== 'done') sprite(PERSON, x + 18, y - 3 + bob, { H: hair, S: '#f2c79a', E: '#1a1a1a', m: work ? '#b5654a' : '#d9967a', C: shirt, D: shade(shirt) });
+    // desk top + front
+    rect(x, y + 14, 48, 6, '#8a5a34'); rect(x, y + 20, 48, 10, '#6b4427'); rect(x + 2, y + 22, 44, 1, '#7a4f2e');
+    rect(x + 2, y + 30, 3, 4, '#4a2f1b'); rect(x + 43, y + 30, 3, 4, '#4a2f1b');
+    // laptop (back side towards us) + glow on the face
+    const scr = s.state === 'work' ? '#ffb23c' : s.state === 'done' ? '#5ee06b' : s.state === 'fail' ? '#ff5468' : '#4a4466';
+    rect(x + 16, y + 9, 16, 6, '#c9c4d8'); rect(x + 17, y + 10, 14, 4, '#b3adc6'); rect(x + 23, y + 11, 2, 2, scr);
+    rect(x + 14, y + 14, 20, 2, '#d8d3e6');
+    // typing hands
+    if (work) sprite(((t * 8 + i) | 0) % 2 ? HANDS_A : HANDS_B, x + 18, y + 13, { h: '#f2c79a' });
+    // mug
+    rect(x + 38, y + 11, 4, 4, '#e7e2d8'); rect(x + 42, y + 12, 1, 2, '#e7e2d8');
+    // status icon above
+    if (s.state === 'done') { rect(x + 20, y + 2, 10, 5, '#2a2340'); }
+    if (s.state === 'fail') { rect(x + 22, y - 9, 6, 6, '#ff5468'); txt('X', x + 23, y - 9, '#12101c'); }
+    // name plate
+    const nm = short(s.name, 11);
+    rect(x + 24 - nm.length * 2 - 2, y + 35, nm.length * 4 + 3, 8, '#12101c'); txt(nm, x + 24, y + 36, s.main ? '#ffb23c' : '#e9e4ff', true);
+    if (s.pct != null) { const bw = 40, f = Math.round(bw * Math.max(0, Math.min(100, s.pct)) / 100); rect(x + 4, y + 45, bw + 2, 5, '#12101c'); rect(x + 5, y + 46, f, 3, s.state === 'done' ? '#5ee06b' : '#ffb23c'); }
+    return { x: x + 24, y: y - 2 };
+  }
+  function bubble(cx, top, s, t) {
+    top -= 5;
+    const msg = short(s.bubble, 14) + (s.state === 'work' ? '.'.repeat(((t * 2) | 0) % 4) : '');
+    const w = Math.max(20, short(s.bubble, 14).length * 4 + 14);
+    const bx = Math.max(2, Math.min(W - w - 2, Math.round(cx - w / 2))), by = top - 14;
+    const edge = s.state === 'work' ? '#ffb23c' : s.state === 'done' ? '#5ee06b' : s.state === 'fail' ? '#ff5468' : '#9a90bd';
+    rect(bx - 1, by - 1, w + 2, 11, edge); rect(bx, by, w, 9, '#12101c'); rect(cx - 1, by + 10, 3, 2, edge);
+    txt(msg, bx + 3, by + 2, edge);
+  }
+  // ---------------------------------------------------------------- cafe (agents who finished take a coffee break here)
+  const CAFE_H = 58, LOUNGE_H = 44;
+  // ---------------------------------------------------------------- lounge: sofa, arcade machine and a TV showing the latest video
+  function lounge(y0, t) {
+    rect(0, y0, W, LOUNGE_H, '#2a2440'); for (let x = 0; x < W; x += 8) for (let yy = y0; yy < y0 + LOUNGE_H; yy += 8) if (((x + yy) / 8) % 2) rect(x, yy, 8, 8, '#2f2848');
+    rect(0, y0, W, 2, '#1c1830');
+    // rug + sofa
+    rect(10, y0 + 30, 70, 10, '#5a2d82'); rect(12, y0 + 32, 66, 6, '#6d3a9c');
+    rect(14, y0 + 14, 62, 8, '#3d6fb0'); rect(14, y0 + 22, 62, 9, '#4f86cc'); rect(10, y0 + 16, 6, 16, '#3d6fb0'); rect(74, y0 + 16, 6, 16, '#3d6fb0');
+    rect(22, y0 + 23, 18, 2, '#6aa0e0'); rect(48, y0 + 23, 18, 2, '#6aa0e0');
+    // arcade machine with blinking screen
+    rect(98, y0 + 6, 20, 34, '#b388ff'); rect(100, y0 + 8, 16, 12, '#12101c');
+    const fl = ((t * 4) | 0) % 4; rect(102 + fl * 3, y0 + 12, 2, 2, '#ffd54f'); rect(110 - fl, y0 + 16, 2, 2, '#5ee06b'); rect(104, y0 + 10, 8, 1, '#ff7aa8');
+    rect(100, y0 + 22, 16, 4, '#7c4dcc'); rect(103, y0 + 23, 2, 2, '#ff5468'); rect(110, y0 + 23, 2, 2, '#4fc3f7'); rect(99, y0 + 6, 18, 2, '#ffb23c');
+    // TV on a stand: the latest video
+    rect(138, y0 + 4, 92, 28, '#0c0a16'); rect(140, y0 + 6, 88, 24, '#1b2a4a');
+    rect(140, y0 + 6, 88, 7, '#12101c'); txt('LATEST', 184, y0 + 7, '#ffb23c', true);
+    const title = String(LATEST || 'NEW VIDEO SOON').toUpperCase(), wpx = title.length * 4;
+    const off = wpx > 82 ? ((t * 14) % (wpx + 40)) - 20 : 0;
+    ctx.save(); ctx.beginPath(); ctx.rect(142, y0 + 15, 84, 8); ctx.clip();
+    txt(title, wpx > 82 ? 144 - off : 184 - wpx / 2 + 1, y0 + 17, '#e9e4ff'); ctx.restore();
+    rect(180, y0 + 24, 6, 4, '#4fc3f7'); rect(178, y0 + 25, 2, 2, '#4fc3f7');
+    rect(180, y0 + 32, 8, 6, '#3a3358'); rect(166, y0 + 38, 36, 3, '#3a3358');
+  }
+  function cafe(y0, S, t) {
+    // floor + back wall
+    rect(0, y0, W, CAFE_H, '#2e2236'); for (let x = 0; x < W; x += 8) for (let yy = y0; yy < y0 + CAFE_H; yy += 8) if (((x + yy) / 8) % 2) rect(x, yy, 8, 8, '#33263d');
+    rect(0, y0, W, 3, '#1c1830'); rect(0, y0 + 3, W, 16, '#3b2a2a'); for (let x = 0; x < W; x += 12) rect(x, y0 + 3, 6, 16, '#432f2f');
+    // sign
+    rect(8, y0 + 5, 30, 11, '#0c0a16'); txt('CAFE', 23, y0 + 8, ((t * 1.5) | 0) % 2 ? '#ffb23c' : '#ffcf7a', true);
+    // counter with espresso machine, cups, pastries, plant
+    rect(150, y0 + 22, 84, 7, '#8a5a34'); rect(150, y0 + 29, 84, 12, '#6b4427'); rect(152, y0 + 31, 80, 1, '#7a4f2e');
+    rect(206, y0 + 10, 18, 12, '#9aa0b4'); rect(208, y0 + 12, 14, 5, '#1b1f2a'); rect(212, y0 + 18, 2, 3, '#3a2a1a'); rect(218, y0 + 18, 2, 3, '#3a2a1a');
+    for (let k = 0; k < 3; k++) if (((t * 3 + k) | 0) % 3 === k) rect(213 + k * 2, y0 + 6 - k, 1, 3, '#d8d8e8');
+    for (let k = 0; k < 3; k++) { rect(160 + k * 8, y0 + 18, 5, 4, '#e7e2d8'); rect(165 + k * 8, y0 + 19, 1, 2, '#e7e2d8'); }
+    rect(186, y0 + 18, 14, 4, '#e9e4ff'); rect(188, y0 + 16, 4, 3, '#c98a4a'); rect(193, y0 + 16, 4, 3, '#e0a868');
+    rect(236, y0 + 24, 4, 14, '#6b3f22'); rect(234, y0 + 16, 8, 9, '#2f8f4e');
+    // two little round tables with stools
+    const spots = [[52, y0 + 32], [104, y0 + 32]];
+    for (const [tx, ty] of spots) { rect(tx - 9, ty, 18, 4, '#8a5a34'); rect(tx - 1, ty + 4, 2, 10, '#4a2f1b'); rect(tx - 5, ty + 13, 10, 2, '#4a2f1b'); }
+    // agents on a break: sit around the tables with a mug, little hearts float up
+    const brk = S.map((s, i) => [s, i]).filter(([s]) => s.state === 'done');
+    brk.slice(0, 4).forEach(([s, i], k) => {
+      const [tx, ty] = spots[k % 2], side = k < 2 ? -1 : 1, px = tx + side * 15 - 6, py = ty - 13;
+      const shirt = s.main ? '#ffb23c' : SHIRTS[(i % (SHIRTS.length - 1)) + 1], hair = HAIRS[i % HAIRS.length];
+      sprite(PERSON, px, py, { H: hair, S: '#f2c79a', E: '#1a1a1a', m: '#b5654a', C: shirt, D: shade(shirt) });
+      const mx = px + (side < 0 ? 11 : -3); rect(mx, py + 9, 4, 4, '#e7e2d8'); rect(mx + (side < 0 ? 4 : -1), py + 10, 1, 2, '#e7e2d8');
+      const h = (t * 0.8 + k * 0.37) % 1; if (h < 0.7) { const hx = px + 5, hy = py - 4 - (h * 12) | 0; rect(hx, hy, 1, 1, '#ff7aa8'); rect(hx + 2, hy, 1, 1, '#ff7aa8'); rect(hx, hy + 1, 3, 1, '#ff7aa8'); rect(hx + 1, hy + 2, 1, 1, '#ff7aa8'); }
+    });
+    if (!brk.length) txt('OPEN FOR BREAKS', 76, y0 + 49, '#6d6290', true);
+  }
+  function shade(hex) { const n = parseInt(hex.slice(1), 16); const r = (n >> 16) * .7 | 0, g = ((n >> 8) & 255) * .7 | 0, b = (n & 255) * .7 | 0; return `rgb(${r},${g},${b})`; }
+  // ---------------------------------------------------------------- celebration (a new video is done)
+  let celebrateUntil = 0, lastPct = null;
+  const CONF = ['#ffb23c', '#4fc3f7', '#5ee06b', '#ff7aa8', '#ffd54f', '#b388ff'];
+  function party(H, t) {
+    for (let i = 0; i < 70; i++) {
+      const sp = 18 + (i * 37) % 23, x = (i * 53 + Math.sin(t * 1.3 + i) * 10) % W, y = ((t * sp + i * 29) % (H + 10)) - 5;
+      rect(Math.round((x + W) % W), Math.round(y), (i % 3) ? 2 : 1, (i % 2) ? 2 : 3, CONF[i % CONF.length]);
+    }
+    const bw = 88, bx = (W - bw) / 2, by = 40, blink = ((t * 3) | 0) % 2;
+    rect(bx - 2, by - 2, bw + 4, 15, '#12101c'); rect(bx - 1, by - 1, bw + 2, 13, blink ? '#ffb23c' : '#5ee06b'); rect(bx, by, bw, 11, '#12101c');
+    txt('NEW VIDEO!', W / 2, by + 3, blink ? '#ffb23c' : '#5ee06b', true);
+  }
+  // ---------------------------------------------------------------- office cat: walks between the desks and naps in the cafe
+  const CAT = ['.k...k.', '.kkkkk.', 'kekkekk', 'kkkpkkk', '.kkkkk.'];
+  function cat(H, t) {
+    const cycle = 56, u = (t % cycle) / cycle, y0 = H - CAFE_H + 40;
+    let x, y = y0, walking = true;
+    if (u < 0.25) x = 12 + (W - 40) * (u / 0.25);
+    else if (u < 0.38) { x = W - 28; walking = false; }
+    else if (u < 0.6) x = W - 28 - (W - 140) * ((u - 0.38) / 0.22);
+    else if (u < 0.68) { x = 112; walking = false; }
+    else if (u < 0.88) { x = 46; y = 66 + 6; walking = (u < 0.7); }   // naps on Claude's desk
+    else { x = 112; walking = false; }
+    if (u >= 0.68 && u < 0.88) { const z = (t * 1.2) % 1; txt('Z', 56, 66 - (z * 6) | 0, '#9a90bd'); }
+    const leg = walking && ((t * 6) | 0) % 2;
+    const col = { k: '#3a3048', e: '#ffd54f', p: '#ff7aa8' };
+    for (let j = 0; j < CAT.length; j++) for (let i = 0; i < 7; i++) { const c = col[CAT[j][i]]; if (c) rect(Math.round(x) + i, y + j, 1, 1, c); }
+    rect(Math.round(x) + 7, y + 1 + (leg ? 0 : 1), 3, 1, '#3a3048');
+    rect(Math.round(x) + 1, y + 5, 1, leg ? 2 : 1, '#3a3048'); rect(Math.round(x) + 5, y + 5, 1, leg ? 1 : 2, '#3a3048');
+    if (!walking && u > 0.9) { const z = (t * 1.2) % 1; txt('Z', Math.round(x) + 9, y - 4 - (z * 6) | 0, '#9a90bd'); }
+  }
+  function frame(now) {
+    const t = now / 1000, S = seats();
+    const rows = Math.ceil(S.length / 2);
+    const H = 56 + rows * 66 + LOUNGE_H + CAFE_H;
+    if (cv.height !== H) { cv.height = H; ctx.imageSmoothingEnabled = false; }
+    room(H, t);
+    const spots = S.map((s, i) => [i % 2 ? 136 : 40, 66 + Math.floor(i / 2) * 66]);
+    const tops = S.map((s, i) => desk(spots[i][0], spots[i][1], s, i, t));
+    lounge(H - CAFE_H - LOUNGE_H, t);
+    cafe(H - CAFE_H, S, t);
+    S.forEach((s, i) => { if (s.state !== 'done') bubble(tops[i].x, tops[i].y, s, t); });
+    cat(H, t);
+    const hrN = new Date().getHours(); if (hrN >= 21 || hrN < 6) { ctx.fillStyle = 'rgba(10,8,30,0.25)'; ctx.fillRect(0, 40, W, H - 40); }
+    if (Date.now() < celebrateUntil) party(H, t);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+  // ---------------------------------------------------------------- party list (HTML)
+  function icon(i, main) {
+    const c = document.createElement('canvas'); c.width = 12; c.height = 12; c.className = 'ic';
+    const g = c.getContext('2d'); const sh = main ? '#ffb23c' : SHIRTS[(i % (SHIRTS.length - 1)) + 1], hr = HAIRS[i % HAIRS.length];
+    const map = { H: hr, S: '#f2c79a', E: '#1a1a1a', m: '#d9967a', C: sh, D: shade(sh) };
+    PERSON.forEach((row, j) => [...row].forEach((k, x) => { if (map[k]) { g.fillStyle = map[k]; g.fillRect(x, j, 1, 1); } }));
+    return c;
+  }
+  function list() {
+    const S = seats();
+    document.getElementById('nWork').textContent = S.filter(s => s.state === 'work').length;
+    document.getElementById('nDone').textContent = S.filter(s => s.state === 'done').length;
+    document.getElementById('proj').textContent = (claude && claude.project) || '—';
+    const q = document.getElementById('quest');
+    if (quest && quest.video) {
+      q.classList.add('on');
+      document.getElementById('qv').textContent = String(quest.video).toUpperCase();
+      document.getElementById('qs').textContent = quest.step ? '▶ ' + String(quest.step).toUpperCase() : '';
+      const pc = Math.max(0, Math.min(100, Math.round(quest.pct || 0)));
+      document.getElementById('qb').style.width = pc + '%';
+      document.getElementById('qp').textContent = pc + '%';
+      document.getElementById('qe').textContent = pc >= 100 ? 'DONE!' : (quest.eta ? 'ETA ' + String(quest.eta).toUpperCase() : '');
+    } else q.classList.remove('on');
+    if (!claude && !agents.length) return;
+    const party = document.getElementById('party');
+    party.replaceChildren(...S.map((s, i) => {
+      const d = document.createElement('div'); d.className = 'card ' + s.state;
+      const info = document.createElement('div');
+      const who = document.createElement('div'); who.className = 'who'; who.textContent = (s.main ? 'CLAUDE' : String(s.name).toUpperCase());
+      const what = document.createElement('div'); what.className = 'what';
+      what.textContent = ({ work: '▶ ', done: '✓ ', fail: '✕ ', idle: '… ' }[s.state] || '') + String(s.bubble).toUpperCase();
+      info.append(who, what);
+      if (s.video) { const v = document.createElement('div'); v.className = 'what'; v.style.color = 'var(--ink)'; v.textContent = '🎬 ' + String(s.video).toUpperCase(); info.append(v); }
+      if (s.pct != null) {
+        const pc = Math.max(0, Math.min(100, Math.round(s.pct)));
+        const b = document.createElement('div'); b.className = 'bar'; const bi = document.createElement('i'); bi.style.width = pc + '%'; b.append(bi);
+        const pt = document.createElement('div'); pt.className = 'pct'; pt.textContent = pc + '%';
+        info.append(b, pt);
+      }
+      d.append(icon(i, s.main), info);
+      return d;
+    }));
+  }
+  list();
+  function renderVote(v) {
+    const el = document.getElementById('vote');
+    if (!v || !v.options || !v.options.length) { el.classList.remove('on'); return; }
+    el.classList.add('on');
+    const total = v.options.reduce((a, o) => a + (o.votes || 0), 0);
+    const h = document.createElement('h2'); h.textContent = v.title || 'WHAT SHOULD THE AGENTS MAKE NEXT?';
+    const items = v.options.map(o => {
+      const d = document.createElement('div'); d.className = 'opt';
+      const pc = total ? Math.round(100 * (o.votes || 0) / total) : 0;
+      d.textContent = String(o.name).toUpperCase() + (total ? '  ' + pc + '%' : '');
+      const b = document.createElement('div'); b.className = 'bar'; const bi = document.createElement('i'); bi.style.width = pc + '%'; b.append(bi); d.append(b);
+      return d;
+    });
+    const a = document.createElement('a'); a.className = 'btn'; a.href = v.link || 'https://instagram.com/ntlevel'; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'VOTE IN OUR INSTAGRAM STORY';
+    const n = document.createElement('div'); n.className = 'note'; n.textContent = v.note || 'RESULTS ARE UPDATED HERE BY THE AGENTS.';
+    el.replaceChildren(h, ...items, a, n);
+  }
+  (async () => {
+    // public version: reads status.json from this same site every 20 s (updated by the agents while they work)
+    const live = document.getElementById('live'), liveTxt = document.getElementById('liveTxt');
+    const tick = async () => {
+      try {
+        const r = await fetch('status.json?' + Date.now(), { cache: 'no-store' });
+        const st = await r.json();
+        claude = st.claude || null; agents = st.agents || [];
+        prog = {}; quest = null;
+        (st.progress || []).forEach(v => { if (v.id === 'quest') quest = v; else if (v.who) prog[String(v.who).toLowerCase()] = v; });
+        if (quest) {
+          const pct = quest.pct || 0;
+          if (lastPct !== null && lastPct < 100 && pct >= 100) celebrateUntil = Date.now() + 15000;
+          if (lastPct === null && pct >= 100 && quest.doneAt && Date.now() - quest.doneAt < 10 * 60 * 1000) celebrateUntil = quest.doneAt + 10 * 60 * 1000;
+          lastPct = pct;
+        }
+        renderVote(st.vote); NEXT = st.next || ''; LATEST = st.latest || '';
+        const fresh = st.updated && (Date.now() - st.updated < 15 * 60 * 1000);
+        live.classList.toggle('on', !!fresh); liveTxt.textContent = fresh ? 'LIVE' : 'ON BREAK';
+        list();
+      } catch (e) { liveTxt.textContent = 'OFFLINE'; }
+    };
+    tick(); setInterval(tick, 20000);
+  })();
+})();
+</script>
