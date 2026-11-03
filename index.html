@@ -115,10 +115,12 @@ const COLONY = {
   instagram: "https://www.instagram.com/ntlevel/",
   // one entry per capsule, in build order; user/country stay null until a follower claims it in the comments
   colonists: Array.from({ length: 28 }, (_, i) => ({ n: i + 1, user: null, country: null, day: 0 })),
+  claims: [{ n: 1, user: "@champion_gus", country: "cu", day: 1 }, { n: 2, user: "@sebas_azxrx", country: "us", day: 1 }],
   buildings: [],                                   // e.g. { type: "greenhouse", day: 1 }
   ideas: [null, null, null]                        // the 3 most liked ideas from the comments, e.g. "Greenhouse"
 };
 // -------------------------------------------------------------------------------------
+COLONY.claims.forEach(c => Object.assign(COLONY.colonists[c.n - 1], c));
 
 const DEG = Math.PI / 180, RINGS = [0.75, 1.5, 2.25], ZMID = [1.12, 1.87];
 const PCOL = ["#f25a33", "#4088ff", "#ffbf26", "#59d966", "#bf66f2", "#33d9d9"];
