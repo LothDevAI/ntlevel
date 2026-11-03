@@ -96,7 +96,7 @@ button.ghost { background: transparent; color: var(--ink); padding: 8px 12px; fo
     <div class="kv"><div><small>Capsule</small><span id="cNum">—</span></div><div><small>Country</small><span id="cCountry">—</span></div><div><small>Arrived</small><span id="cDay">—</span></div></div>
     <p class="how" id="cHow"></p>
   </div>
-  <div class="vote panel" id="vote"><small>Comment your idea · top 3 get built</small><span id="voteChips"></span></div>
+  <div class="vote panel" id="vote"><small id="voteT">Comment your idea · top 3 get built</small><span id="voteChips"></span></div>
   <form class="find panel" id="findForm" autocomplete="off">
     <label for="q">LIVE</label>
     <input id="q" name="q" placeholder="Commented? Find your colonist (@name or #12)" aria-label="Find your colonist by username or capsule number">
@@ -114,11 +114,12 @@ const COLONY = {
   founder: "@ntlevel",
   instagram: "https://www.instagram.com/ntlevel/",
   // one entry per capsule, in build order; user/country stay null until a follower claims it in the comments
-  colonists: Array.from({ length: 28 }, (_, i) => ({ n: i + 1, user: null, country: null, day: 0 })),
+  colonists: Array.from({ length: 36 }, (_, i) => ({ n: i + 1, user: null, country: null, day: 0 })),
   claims: [{ n: 1, user: "@champion_gus", country: "cu", day: 1 }, { n: 2, user: "@sebas_azxrx", country: "us", day: 1 },
            { n: 3, user: "@ahme_rzk", country: "ma", day: 1 }, { n: 4, user: "@warrior254342", country: "ke", day: 1 }],
   buildings: [],                                   // e.g. { type: "greenhouse", day: 1 }
-  ideas: [null, null, null]                        // the 3 most liked ideas from the comments, e.g. "Greenhouse"
+  ideas: [null, null, null],                       // the 3 most liked ideas from the comments, e.g. "Greenhouse"
+  event: "crash"                                   // Day 1: the supply rocket tipped over; vote water / food / greenhouse
 };
 // -------------------------------------------------------------------------------------
 COLONY.claims.forEach(c => Object.assign(COLONY.colonists[c.n - 1], c));
@@ -126,12 +127,13 @@ COLONY.claims.forEach(c => Object.assign(COLONY.colonists[c.n - 1], c));
 const DEG = Math.PI / 180, RINGS = [0.75, 1.5, 2.25], ZMID = [1.12, 1.87];
 const PCOL = ["#f25a33", "#4088ff", "#ffbf26", "#59d966", "#bf66f2", "#33d9d9"];
 const slot = (r, a) => ({ a, r, x: r * Math.cos(a), z: r * Math.sin(a) });
-const S1 = [], S2 = [];
-for (let k = 0; k < 8; k++) for (const sg of [-1, 1]) { const c = (22.5 + 45 * k) * DEG; S1.push(slot(ZMID[0], c + sg * 10 * DEG)); S2.push(slot(ZMID[1], c + sg * 12 * DEG)); }
+const S1 = [], S2 = [], S3 = [];
+for (let k = 0; k < 8; k++) for (const sg of [-1, 1]) { const c = (22.5 + 45 * k) * DEG; S1.push(slot(ZMID[0], c + sg * 10 * DEG)); S2.push(slot(ZMID[1], c + sg * 12 * DEG)); S3.push(slot(2.62, c + sg * 12 * DEG)); }
 const PADA = 202.5 * DEG, GHA = 34.5 * DEG, DRA = 55.5 * DEG;
 const angd = (a, b) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
 const S2free = S2.filter(q => angd(q.a, PADA) > 20 * DEG).sort((p, q) => angd(q.a, 45 * DEG) - angd(p.a, 45 * DEG));
-const SLOTS = [...S1, ...S2free];
+const S3s = S3.slice().sort((p, q) => angd(p.a, 45 * DEG) - angd(q.a, 45 * DEG));
+const SLOTS = [...S1, ...S2free, ...S3s];
 
 const $ = id => document.getElementById(id);
 function flag(cc) { if (!cc || cc.length !== 2) return ""; return String.fromCodePoint(...[...cc.toUpperCase()].map(c => 0x1F1A5 + c.charCodeAt(0))); }
@@ -139,6 +141,7 @@ $("sDay").textContent = COLONY.day;
 $("sCol").textContent = COLONY.colonists.length;
 $("sBld").textContent = COLONY.colonists.length + 1 + COLONY.buildings.length;
 $("voteChips").innerHTML = "";
+if (COLONY.event === "crash") { $("voteT").textContent = "Day 1 vote · what do we save first?"; COLONY.ideas = ["Water", "Food", "Greenhouse"]; COLONY.voteOnly = true; }
 ["#3fae5a", "#2f8fd0", "#e09a2a"].forEach((c, i) => { const s = document.createElement("span"); s.className = "chip"; s.style.background = c; s.style.marginRight = "4px"; s.textContent = COLONY.ideas[i] || ("Idea #" + (i + 1) + "?"); $("voteChips").append(s); });
 
 const toast = m => { $("toast").textContent = m; };
@@ -182,7 +185,7 @@ function start() {
   const rocks = new THREE.Group(); scene.add(rocks);
   let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   for (let i = 0; i < 160; i++) { const a = rnd() * 6.283, r = 0.9 + 5 * rnd(), x = r * Math.cos(a), z = r * Math.sin(a);
-    if (RINGS.concat([3, 3.75]).some(R => Math.abs(r - R) < 0.12) || SLOTS.some(q => Math.hypot(q.x - x, q.z - z) < 0.3) || Math.abs(Math.sin(a * 4)) * r < 0.1) continue;
+    if (RINGS.concat([3, 3.75]).some(R => Math.abs(r - R) < 0.12) || SLOTS.some(q => Math.hypot(q.x - x, q.z - z) < 0.3) || Math.hypot(x - 3.36 * Math.cos(61 * DEG), z - 3.36 * Math.sin(61 * DEG)) < 1.0 || Math.abs(Math.sin(a * 4)) * r < 0.1) continue;
     const s = 0.012 + 0.02 * rnd(); const m = add(new THREE.DodecahedronGeometry(s, 0), M("#8f3f1e", { roughness: 1 }), rocks); m.position.set(x, s * 0.5, z); m.rotation.set(rnd(), rnd(), rnd()); }
 
   // capsule builder (same design as the videos)
@@ -242,9 +245,31 @@ function start() {
   if (nx) { const plot = add(new THREE.BoxGeometry(0.42, 0.008, 0.42).translate(0, 0.004, 0), mPlot, scene, false); plot.position.set(nx.x, 0, nx.z); plot.rotation.y = -nx.a;
     for (let q = 0; q < 4; q++) { const a = q * Math.PI / 2 + Math.PI / 4; add(new THREE.BoxGeometry(0.03, 0.08, 0.03).translate(nx.x + 0.17 * Math.cos(a), 0.04, nx.z + 0.17 * Math.sin(a)), mStake); } }
   // three idea plots (top-3 ideas from the comments get built here)
-  [12, 23, 34].forEach((d, i) => { const x = 2.62 * Math.cos(d * DEG), z = 2.62 * Math.sin(d * DEG), c = ["#59e07f", "#4cc8ff", "#ffbf40"][i];
+  if (!COLONY.voteOnly) [12, 23, 34].forEach((d, i) => { const x = 2.62 * Math.cos(d * DEG), z = 2.62 * Math.sin(d * DEG), c = ["#59e07f", "#4cc8ff", "#ffbf40"][i];
     const p = add(new THREE.BoxGeometry(0.42, 0.008, 0.42).translate(0, 0.004, 0), mPlot, scene, false); p.position.set(x, 0, z); p.rotation.y = -d * DEG;
     if (!COLONY.ideas[i]) add(new THREE.CylinderGeometry(0.11, 0.11, 0.32, 32, 1, true).translate(x, 0.16, z), M(c, { transparent: true, opacity: 0.35, emissive: c, emissiveIntensity: 0.8, depthWrite: false }), scene, false); });
+  // Day 1 event: supply rocket tipped over at its landing zone, cargo spilled on the sand
+  if (COLONY.event === "crash") {
+    const CA = 61 * DEG, CS = new THREE.Vector3(3.36 * Math.cos(CA), 0, 3.36 * Math.sin(CA)), DF = new THREE.Vector3(-Math.sin(CA), 0, Math.cos(CA)), DR = new THREE.Vector3(Math.cos(CA), 0, Math.sin(CA));
+    const at = (al, ou) => CS.clone().addScaledVector(DF, al).addScaledVector(DR, ou);
+    add(new THREE.CylinderGeometry(0.3, 0.3, 0.012, 64).translate(CS.x, 0.006, CS.z), mDark);
+    add(new THREE.TorusGeometry(0.21, 0.006, 6, 64).rotateX(Math.PI / 2).translate(CS.x, 0.013, CS.z), M("#ffbf26", { emissive: "#ffaa10", emissiveIntensity: 0.5 }), scene, false);
+    const rk = new THREE.Group(); scene.add(rk);
+    add(new THREE.LatheGeometry([[0, .575], [.02, .565], [.05, .52], [.072, .45], [.08, .38], [.08, .1], [.075, .07], [0, .07]].map(p => new THREE.Vector2(p[0], p[1])), 48), mWhite, rk);
+    add(new THREE.CylinderGeometry(.0805, .0805, .025, 48, 1, true).translate(0, .3025, 0), mDark, rk);
+    add(new THREE.CylinderGeometry(.0806, .0806, .04, 48, 1, true).translate(0, .22, 0), M("#ff8c1f", { emissive: "#ff7a10", emissiveIntensity: 0.3 }), rk);
+    add(new THREE.CylinderGeometry(.028, .05, .037, 32).translate(0, .053, 0), mDark, rk);
+    for (const q of [0, 3]) { const a = q / 4 * 2 * Math.PI + Math.PI / 4, c = Math.cos(a), s = Math.sin(a); add(new THREE.BoxGeometry(.014, .1, .014).translate(.12 * c, .05, .12 * s), mWhite, rk); }
+    // lying along DF: local +y -> DF, local +x -> up; pivot so the body rests on the pad
+    const m = new THREE.Matrix4().makeBasis(new THREE.Vector3(0, 1, 0), DF.clone(), new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), DF));
+    rk.quaternion.setFromRotationMatrix(m); rk.position.copy(CS.clone().addScaledVector(DF, 0.08)).setY(0.092); rk.updateMatrixWorld();
+    const leg = add(new THREE.BoxGeometry(.014, .014, .1), mWhite); leg.position.copy(at(0.1, 0.16)).setY(0.019); leg.rotation.y = -CA;
+    const bar = M("#3380f2", { emissive: "#3380ff", emissiveIntensity: 0.15 }), crt = M("#4db852", { emissive: "#4dcc59", emissiveIntensity: 0.12 }), gl = M("#cceeff", { transparent: true, opacity: 0.55, emissive: "#99e6ff", emissiveIntensity: 0.25 });
+    [[0.28, 0.22], [0.37, 0.2], [0.32, 0.31], [0.43, 0.29]].forEach(([al, ou]) => { const p = at(al, ou); add(new THREE.CylinderGeometry(.028, .028, .07, 24).translate(p.x, 0.035, p.z), bar); });
+    [[0.55, 0.24], [0.64, 0.19], [0.73, 0.26], [0.6, 0.34], [0.71, 0.37]].forEach(([al, ou], i) => { const p = at(al, ou), b = add(new THREE.BoxGeometry(.07, .05, .05), crt); b.position.set(p.x, 0.025, p.z); b.rotation.y = -CA + 0.4 * Math.sin(i * 3.1); });
+    [[0.86, 0.15], [0.98, 0.24], [0.88, 0.31]].forEach(([al, ou], i) => { const p = at(al, ou), b = add(new THREE.BoxGeometry(.11, .008, .075), gl, scene, false); b.position.set(p.x, 0.004, p.z); b.rotation.y = -CA + 0.3 * Math.sin(i * 2.3); });
+    [[0.8, 0.0], [1.02, 0.07]].forEach(([al, ou], i) => { const p = at(al, ou), b = add(new THREE.BoxGeometry(.09, .045, .06), mWhite); b.position.set(p.x, 0.0225, p.z); b.rotation.y = -CA + 0.5 * Math.sin(i * 1.7); });
+  }
   // founder's glass house
   const fh = capsule("#ffffff", 1.9, true); fh.rotation.y = -Math.PI / 2; scene.add(fh);
   fh.traverse(o => { if (o.isMesh) { o.userData.home = -1; pickables.push(o); } });
